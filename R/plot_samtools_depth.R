@@ -48,8 +48,6 @@ option_list = list(
 	# Output options
 	make_option(c('-o', '--outFile'), action='store', default=NA, type='character',
 		help='Base name to use for output files. Default: [depth file base name]'),
-	make_option(c('-e', '--extension'), action='store', default='pdf', type='character',
-		help='Output file type. Default: pdf'),
 	make_option(c('--force'), action='store_true', default=FALSE, type='logical',
 		help='Force overwrite of existing output files. Default: False'),
 
@@ -171,41 +169,17 @@ if(is.na(opt$outFile)){
 	output_base = opt$outFile
 }
 
-# Check file extension options
-if(opt$extension %in% c('pdf', 'png', 'jpeg', 'ps', 'bmp')){
-	output_file_extension = opt$extension
-} else{
-	cat(paste('Error: the option provided to --extension is not recognized!\nAvailable options:    pdf, png, jpeg, ps, bmp\n'), sep='')
-	quit(status=1)
-}
-
-# A simple check to overwrite existing output files
-check_file_overwrite = function(fileName, forceOverwrite=F) {
-	if(file.exists(fileName)){
-		if(forceOverwrite){
-			return(TRUE)
-		} else {
-			force_overwrite = menu(c('Yes', 'No'), title=paste('Warning: The output file', opt$outfile, 'already exists. Overwrite?'))
-			if (force_overwrite == 1) {
-				return(TRUE)
-			} else {
-				cat('Well, in that case, exiting. Use --force to force overwrite of existing output files, or specify a different output base name with --outFile.\n', file=stderr())
-				quit(status=1)
-			}
-		}
-	}
-}
 
 # Create output file names up front.
 # Later, make sure these files don't exist. If they do, prompt user for an overwrite.
-depth_plot_output_name = paste(output_base, '_depthPlot', output_file_extension, sep='')
+depth_plot_output_name = paste(output_base, '_depthPlot.', 'pdf', sep='')
 
 if(opt$plotDepthPerSeq){
-	depth_per_seq_plot_output_name = paste(output_base, '_depthPerSeqBarplot', output_file_extension, sep='')
+	depth_per_seq_plot_output_name = paste(output_base, '_depthPerSeqBarplot.', 'pdf', sep='')
 }
 
 if(opt$plotDepthWindowDistPerSeq){
-	depth_window_dist_plot_output_name = paste(output_base, '_depthWindowDistPerSeq', output_file_extension, sep='')
+	depth_window_dist_plot_output_name = paste(output_base, '_depthWindowDistPerSeq.', 'pdf', sep='')
 }
 
 ############################################################
@@ -227,9 +201,9 @@ if(opt$scaleDepthPerSeq){
 
 # Number of seqs to plot on each page.
 if(opt$seqsPerPage == 1){
-	seqs_per_page = 1
+	plots_per_page = 1
 } else if (opt$seqsPerPage < 6) {
-	seqs_per_page = opt$seqsPerPage
+	plots_per_page = opt$seqsPerPage
 } else {
 	cat('Error: the --seqsPerPage parameter must be an integer less than 5! More than 3 might break things. More than 5 almost certainly will.\n', file=stderr())
 	quit(status=1)
@@ -240,7 +214,7 @@ if(!opt$viridisPalette %in% c('viridis', 'magma', 'inferno', 'plasma', 'cividis'
 	cat(paste('Error: the argument provided to --viridisPalette is not recognized!\n', 'Available options: ', sep=''), file=stderr())
 	quit(status=1)
 } else {
-	viridis_palette = opt$viridisPalette
+	viridis_palette = match.fun(opt$viridisPalette)
 }
 
 # Whether or not to use splines.
@@ -275,12 +249,11 @@ print_input_summary <- function() {
 		'  Number of threads:                   ', num_threads, '\n',
 		'OUTPUT OPTIONS:', '\n',
 		'  Output base name:                    ', output_base, '\n',
-		'  Output plot file type:               ', output_file_extension, '\n',
 		'  Plot per-seq depth barplot?          ', opt$plotDepthPerSeq, '\n',
 		'  Plot per-seq window distribution?    ', opt$plotDepthWindowDistPerSeq, '\n',
 		'  Plot coverage using splines?         ', opt$useSplines, '\n',
-		'  Write output DepthPerSeq table?      ', opt$writeDepthPerSeqTable, '\n',
-		'  Write output DepthWindowTable table? ', opt$writeDepthWindowTable, '\n',
+		'  Write DepthPerSeq table?             ', opt$writeDepthPerSeqTable, '\n',
+		'  Write DepthWindowTable table?        ', opt$writeDepthWindowTable, '\n',
 		sep='')
 	cat(summary)
 }
@@ -426,7 +399,6 @@ plot_depth_per_seq <- function(chunkedDF, seqs_per_plot=25, plots_per_page=1, vi
 	par(mfrow=c(1,1))
 }
 
-
 ############################################################
 # This function splits a depth data frame into a list of
 # data frames based on sequence name. Then, for each
@@ -446,53 +418,73 @@ calculate_depth_windows <- function(depthDF, windowSize=5000, stepSize=5000, num
 	depthDF_by_seq = remove_sequences_with_0_depth(depthDF=depthDF)
 	depthDF_by_seq = split(depthDF, depthDF$Sequence)
 
-	# For each sequence...
-	list_of_chunked_sequences = lapply(depthDF_by_seq, function(seq){
-		seq_len = nrow(seq)
-		seq_name = unique(seq$Sequence)
+	# Deal with the special case of windowSize = 1 first.
+	if(windowSize == 1){
+		depthDF_in_output_format = lapply(depthDF_by_seq, function(seq) {
+				joined_chunks = as.data.frame(matrix(nrow=nrow(seq)))
+				colnames(joined_chunks) = 'Sequence'
+				joined_chunks$Sequence = as.character(unlist(seq$Sequence))
+				joined_chunks$Start = as.numeric(unlist(seq$Position))
+				joined_chunks$End = as.numeric(unlist(seq$Position + 1))
+				joined_chunks$Midpoint = as.numeric(unlist(seq$Position + 0.5))
+				joined_chunks$Depth_mean = as.numeric(unlist(seq$Depth))
+				joined_chunks$Depth_sd = NA
+				joined_chunks$Depth_median = NA
+				return(joined_chunks)
+			})
+		outputDF = do.call(rbind, depthDF_in_output_format)
+		rownames(outputDF) = NULL
+		return(outputDF)
+	} else {
+		# For each sequence...
+		list_of_chunked_sequences = lapply(depthDF_by_seq, function(seq){
+			seq_len = nrow(seq)
+			seq_name = unique(seq$Sequence)
 
-		# Break sequence into chunks...
-		chunk_start_points = seq(from=1, to=seq_len, by=stepSize)
+			# Break sequence into chunks...
+			chunk_start_points = seq(from=1, to=seq_len, by=stepSize)
 
-		chunk_data_frames = mclapply(mc.cores = numThreads, chunk_start_points, function(chunk_start){
-			# Then calculate depth statistics.
-			if(chunk_start + windowSize <= seq_len){
-				chunk_end = chunk_start + windowSize
-			} else {
-				chunk_end = seq_len
-			}
-			chunk_mid = (chunk_start+chunk_end)/ 2
+			chunk_data_frames = mclapply(mc.cores = numThreads, chunk_start_points, function(chunk_start){
+				# Then calculate depth statistics.
+				if(chunk_start + windowSize <= seq_len){
+					chunk_end = chunk_start + windowSize
+				} else {
+					chunk_end = seq_len
+				}
+				chunk_mid = (chunk_start+chunk_end)/ 2
 
-			current_chunk = subset(seq, chunk_start <= seq$Position & seq$Position < chunk_end)
+				current_chunk = subset(seq, chunk_start <= seq$Position & seq$Position < chunk_end)
 
-			df_with_0s = data.frame(Position=chunk_start:chunk_end)
+				df_with_0s = data.frame(Position=chunk_start:chunk_end)
 
-			df_with_0s = merge(df_with_0s, current_chunk, by='Position', all=T)
-			df_with_0s$Depth[is.na(df_with_0s$Depth)] = 0
+				df_with_0s = merge(df_with_0s, current_chunk, by='Position', all=T)
+				df_with_0s$Depth[is.na(df_with_0s$Depth)] = 0
 
-			depth_mean = mean(df_with_0s$Depth)
-			depth_median = median(df_with_0s$Depth)
-			depth_sd = sd(df_with_0s$Depth)
+				depth_mean = mean(df_with_0s$Depth)
+				depth_median = median(df_with_0s$Depth)
+				depth_sd = sd(df_with_0s$Depth)
 
-			chunk_list = list(Sequence=seq_name, Start=chunk_start, End=chunk_end, Midpoint=chunk_mid, Depth_mean=depth_mean, Depth_median=depth_median, Depth_sd=depth_sd)
-			return(chunk_list)
+				chunk_list = list(Sequence=seq_name, Start=chunk_start, End=chunk_end, Midpoint=chunk_mid, Depth_mean=depth_mean, Depth_median=depth_median, Depth_sd=depth_sd)
+				return(chunk_list)
+			})
+
+			joined_chunks = as.data.frame(do.call(rbind, chunk_data_frames))
+
+			joined_chunks$Sequence = as.character(unlist(joined_chunks$Sequence))
+			joined_chunks$Start = as.numeric(unlist(joined_chunks$Start))
+			joined_chunks$End = as.numeric(unlist(joined_chunks$End))
+			joined_chunks$Midpoint = as.numeric(unlist(joined_chunks$Midpoint))
+			joined_chunks$Depth_mean = as.numeric(unlist(joined_chunks$Depth_mean))
+			joined_chunks$Depth_sd = as.numeric(unlist(joined_chunks$Depth_sd))
+			joined_chunks$Depth_median = as.numeric(unlist(joined_chunks$Depth_median))
+			return(joined_chunks)
 		})
-
-		joined_chunks = as.data.frame(do.call(rbind, chunk_data_frames))
-
-		joined_chunks$Sequence = as.character(unlist(joined_chunks$Sequence))
-		joined_chunks$Start = as.numeric(unlist(joined_chunks$Start))
-		joined_chunks$End = as.numeric(unlist(joined_chunks$End))
-		joined_chunks$Midpoint = as.numeric(unlist(joined_chunks$Midpoint))
-		joined_chunks$Depth_mean = as.numeric(unlist(joined_chunks$Depth_mean))
-		joined_chunks$Depth_sd = as.numeric(unlist(joined_chunks$Depth_sd))
-		joined_chunks$Depth_median = as.numeric(unlist(joined_chunks$Depth_median))
-		return(joined_chunks)
-	})
-	concatenated_df_of_chunked_sequences = do.call(rbind, list_of_chunked_sequences)
-	rownames(concatenated_df_of_chunked_sequences) = NULL
-	return(concatenated_df_of_chunked_sequences)
+		concatenated_df_of_chunked_sequences = do.call(rbind, list_of_chunked_sequences)
+		rownames(concatenated_df_of_chunked_sequences) = NULL
+		return(concatenated_df_of_chunked_sequences)
+	}
 }
+
 
 
 ############################################################
@@ -590,23 +582,39 @@ plot_depth_windows_over_seqs <- function(chunkedDF, plots_per_page=1, windows=F,
 	par(mfrow=c(1,1))
 }
 
+############################################################
+# A helper function to make sure that a file doesn't exist
+# already. If it does exist, see if forceOverwrite is on.
+# If not, error out.
+############################################################
+check_file_exists = function(fileName=NA, forceOverwrite=F) {
+	if(file.exists(fileName)){
+		if(forceOverwrite){
+			return(TRUE)
+		} else {
+			cat(paste('Error: file ', fileName, ' exists already!\nUse --force to overwrite or choose a different output base name with --outFile.\n', sep=''), file=stderr())
+			quit(status=1)
+		}
+	} else {
+		return(TRUE)
+	}
+}
 
 ############################################################
-# A helper function to open output files in the right
-# format.
+# A helper function to open output files.
 ############################################################
-open_output_plot_file = function(fileExtension=NA, fileName=NA) {
+open_output_plot_file = function(fileName=NA, fileExtension=NA) {
 	if(!is.na(fileName)){
 		if(fileExtension == 'pdf'){
-			file_function = pdf(fileName)
+			pdf(fileName)
 		} else if (fileExtension == 'png') {
-			file_function = png(fileName)
+			png(fileName)
 		} else if (fileExtension == 'jpeg') {
-			file_function = jpeg(fileName)
+			jpeg(fileName)
 		} else if (extension == 'ps'){
-			file_function = postscript(fileName)
+			postscript(fileName)
 		} else if (fileExtension == 'bmp'){
-			file_function = bmp(fileName)
+			bmp(fileName)
 		}
 	}
 }
@@ -644,28 +652,53 @@ if(opt$verbose){
 	print_depthDF_summary(depthDF=depth_df)
 }
 
-# First, do per-sequence depth stuff, if necessary.
+############################################################
+# Per-sequence depth window plot and table
+############################################################
 if(opt$plotDepthPerSeq){
-	if(check_file_overwrite(depth_per_seq_plot_output_name, forceOverwrite=opt$force)){
+	# Try opening output file before proceeding.
+	# This function prints an error and exits if the file exists, but --force is off.
+	if(check_file_exists(fileName=depth_per_seq_plot_output_name, forceOverwrite=opt$force)){
 		depth_df_per_seq = calculate_depth_per_seq(depth_df, numThreads=num_threads)
-		open_output_plot_file(fileExtension=output_file_extension, fileName=depth_per_seq_plot_output_name)
+		if(opt$writeDepthPerSeqTable){
+			write.table(x=depth_df_per_seq, file=paste(output_base, '_depthPerSeqBarplot.tsv', sep=''), quote=F, row.names=F, sep='\t')
+		}
+		open_output_plot_file(fileName=depth_per_seq_plot_output_name, fileExtension='pdf')
 		plot_depth_per_seq(depth_df_per_seq, seqs_per_plot=25, plots_per_page=plots_per_page, viridis_palette=viridis_palette)
-		dev.off()
+		invisible(dev.off())
 	}
 }
 
-# Second, make per-sequence coverage plots.
-if(opt$plotDepthPerSeq){
-	if(check_file_overwrite(depth_per_seq_plot_output_name, forceOverwrite=opt$force)){
-		depth_df_per_seq = calculate_depth_per_seq(depth_df, numThreads=num_threads)
-		open_output_plot_file(fileExtension=output_file_extension, fileName=depth_per_seq_plot_output_name)
+############################################################
+# Calculate coverage windows and make plots
+############################################################
+# Calculate depth windows if necessary.
+# If calculating windows is not necessary, that is OK, but the function
+# calculate_depth_windows must be invoked on the depth data frame
+# to get the data into a format usable with the plotting functions.
+depth_df_windows = calculate_depth_windows(depth_df, windowSize=window_size, stepSize=step_size, numThread=num_threads)
+# Make coverage window distribution plot if necessary
+if(opt$plotDepthWindowDistPerSeq)
+	if(check_file_exists(fileName=depth_window_dist_plot_output_name, forceOverwrite=opt$force)){
+		open_output_plot_file(fileName=depth_window_dist_plot_output_name, fileExtension='pdf')
+		plot_depth_window_distribution_per_seq(depth_df_windows, seqs_per_plot=25, plots_per_page=plots_per_page, viridis_palette=viridis_palette, breaks=5)
+		invisible(dev.off())
 	}
+# Write output table if necessary
+if(opt$writeDepthWindowTable){
+	write.table(x=depth_df_windows, file=paste(output_base, '_depthWindows.tsv', sep=''), quote=F, row.names=F, sep='\t')
 }
 
-# The depth distribution plots always need to be made. Start with that.
-if(check_file_overwrite(depth_plot_output_name, forceOverwrite=opt$force)){
-	print(':)')
+############################################################
+# Coverage plot - finally!
+############################################################
+if(check_file_exists(fileName=depth_plot_output_name, forceOverwrite=opt$force)){
+	open_output_plot_file(fileName=depth_plot_output_name, fileExtension='pdf')
+	if(window_size > 1){
+		plot_depth_windows_over_seqs(depth_df_windows, plots_per_page=plots_per_page, windows=T, splines=use_splines, per_seq_depth_scaling=scale_depth_per_seq, per_seq_length_scaling=scale_len_per_seq)
+	} else {
+		plot_depth_windows_over_seqs(depth_df_windows, plots_per_page=plots_per_page, windows=F, splines=use_splines, per_seq_depth_scaling=scale_depth_per_seq, per_seq_length_scaling=scale_len_per_seq)
+	}
+
+	invisible(dev.off())
 }
-
-
-check_file_overwrite(depth_window_dist_plot_output_name, forceOverwrite=opt$force)
