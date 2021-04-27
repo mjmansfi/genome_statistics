@@ -60,8 +60,6 @@ option_list = list(
 		help='An integer between 1 and 5 specifying the number of sequences to include on each page of the coverage plot. Default: 1'),
 	make_option(c('--plotDepthPerSeq'), action='store_true', default=FALSE, type='logical',
 		help='Flag specifying whether or not to show plot summarizing mean depth for each sequence. Default: False.'),
-	make_option(c('--plotDepthWindowDistPerSeq'), action='store_true', default=FALSE, type='logical',
-		help='Flag specifying whether to show box plots with mean depth window distributions for each sequence. Default: False. By default coverage windows are not calculated; if they are, showPerSeqWindowPlot is FALSE unless specified.'),
 	make_option(c('--writeDepthPerSeqTable'), action='store_true', default=FALSE, type='logical',
 		help='Flag specifying whether to write a per-sequence summary table in TSV format. Default: False'),
 	make_option(c('--writeDepthWindowTable'), action='store_true', default=FALSE, type='logical',
@@ -169,17 +167,12 @@ if(is.na(opt$outFile)){
 	output_base = opt$outFile
 }
 
-
 # Create output file names up front.
 # Later, make sure these files don't exist. If they do, prompt user for an overwrite.
 depth_plot_output_name = paste(output_base, '_depthPlot.', 'pdf', sep='')
 
 if(opt$plotDepthPerSeq){
 	depth_per_seq_plot_output_name = paste(output_base, '_depthPerSeqBarplot.', 'pdf', sep='')
-}
-
-if(opt$plotDepthWindowDistPerSeq){
-	depth_window_dist_plot_output_name = paste(output_base, '_depthWindowDistPerSeq.', 'pdf', sep='')
 }
 
 ############################################################
@@ -250,7 +243,6 @@ print_input_summary <- function() {
 		'OUTPUT OPTIONS:', '\n',
 		'  Output base name:                    ', output_base, '\n',
 		'  Plot per-seq depth barplot?          ', opt$plotDepthPerSeq, '\n',
-		'  Plot per-seq window distribution?    ', opt$plotDepthWindowDistPerSeq, '\n',
 		'  Plot coverage using splines?         ', opt$useSplines, '\n',
 		'  Write DepthPerSeq table?             ', opt$writeDepthPerSeqTable, '\n',
 		'  Write DepthWindowTable table?        ', opt$writeDepthWindowTable, '\n',
@@ -393,7 +385,7 @@ plot_depth_per_seq <- function(chunkedDF, seqs_per_plot=25, plots_per_page=1, vi
 		joined_df = do.call(rbind, list_subsection)
 
 		barplot(joined_df$Depth_mean ~ joined_df$Sequence, las=2, xlab='Sequence', ylab='Depth', ylim=c(0, max_depth), col=joined_df$colour)
-		legend('top', horiz=T, pch=15, col=unique(chunkedDF$colour), legend=unique(chunkedDF$label), bty='n')
+		legend('topright', cex=0.85, bg='white', pch=15, col=unique(chunkedDF$colour), legend=unique(chunkedDF$label), bty='n')
 
 	})
 	par(mfrow=c(1,1))
@@ -483,46 +475,6 @@ calculate_depth_windows <- function(depthDF, windowSize=5000, stepSize=5000, num
 		rownames(concatenated_df_of_chunked_sequences) = NULL
 		return(concatenated_df_of_chunked_sequences)
 	}
-}
-
-
-
-############################################################
-# This function plots depth window distributions
-# across all sequences in the depthfile.
-############################################################
-plot_depth_window_distribution_per_seq <- function(chunkedDF, seqs_per_plot=20, plots_per_page=1, viridis_palette=viridis, breaks=5){
-	# Call helper function to get colours and labels according to a numeric vector (length).
-	labels_and_colours = numeric_vector_to_labels_and_colours(chunkedDF$Length/1000, breaks=breaks, viridis_palette=viridis_palette, prefix='', suffix='kbp', digits=2)
-	chunkedDF$colour = labels_and_colours$colour
-	chunkedDF$label = labels_and_colours$label
-
-	split_by_seq = split(chunkedDF, chunkedDF$Sequence)
-	# Order by sequence size (maximum end size)
-	split_by_seq = split_by_seq[order(sapply(split_by_seq, function(x) max(x$End)), decreasing=T)]
-	split_start_points = seq(from=1, to=length(split_by_seq), by=seqs_per_plot)
-
-	# Plot parameters
-	min_depth = min(chunkedDF$Depth_mean)
-
-	max_depth = max(chunkedDF$Depth_mean)
-
-	par(mfrow=c(plots_per_page, 1))
-	A = lapply(split_start_points, function(x){
-		list_start = x
-		if( (list_start+seqs_per_plot) < length(split_by_seq)){
-			list_end = x + seqs_per_plot
-		} else {
-			list_end = length(split_by_seq)
-		}
-
-		list_subsection = split_by_seq[c(list_start:list_end)]
-		joined_df = do.call(rbind, list_subsection)
-
-		boxplot( joined_df$Depth_mean ~ joined_df$Sequence, las=2, xlab='Sequence', ylab='Depth', ylim=c(0, max_depth), col=joined_df$colour)
-		legend('topright', horiz=F, pch=15, col=unique(chunkedDF$colour), legend=unique(chunkedDF$label), bty='n')
-	})
-	par(mfrow=c(1,1))
 }
 
 
@@ -677,13 +629,7 @@ if(opt$plotDepthPerSeq){
 # calculate_depth_windows must be invoked on the depth data frame
 # to get the data into a format usable with the plotting functions.
 depth_df_windows = calculate_depth_windows(depth_df, windowSize=window_size, stepSize=step_size, numThread=num_threads)
-# Make coverage window distribution plot if necessary
-if(opt$plotDepthWindowDistPerSeq)
-	if(check_file_exists(fileName=depth_window_dist_plot_output_name, forceOverwrite=opt$force)){
-		open_output_plot_file(fileName=depth_window_dist_plot_output_name, fileExtension='pdf')
-		plot_depth_window_distribution_per_seq(depth_df_windows, seqs_per_plot=25, plots_per_page=plots_per_page, viridis_palette=viridis_palette, breaks=5)
-		invisible(dev.off())
-	}
+
 # Write output table if necessary
 if(opt$writeDepthWindowTable){
 	write.table(x=depth_df_windows, file=paste(output_base, '_depthWindows.tsv', sep=''), quote=F, row.names=F, sep='\t')
