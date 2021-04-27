@@ -4,10 +4,5 @@
 *.tsv
 *.csv
 *.pdf
-*.png
-*.jpeg
-*.jpg
-*.bmp
-*.ps
 *.gz
 *scratch*
