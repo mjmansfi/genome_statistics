@@ -8,10 +8,10 @@ Hey, it's better than random bash scripts, no?
 A script to plot different parameters based on the output of *samtools depth -a [sorted, indexed bamfile]*. The **-a** flag is very important because *all* positions for *all* sequences need to be represented in the data. The script contains a rudimentary check to make sure that this is true for your input data - so the script should complain if you do not use this flag - but in case it doesn't, just make sure to use that flag.
 
 Non-base library dependencies:
-- `optparse` - to parse input arguments
-- `data.table` - to read input files
-- `R.utils` - to read compressed input files
-- `viridis` - to allow more colourful plots
+- `optparse` - to gather and parse input arguments
+- `data.table` - to efficiently read in data tables
+- `R.utils` - to read compressed data tables
+- `viridis` - to allow more colourful (and colourblind-friendly) plots
 
 ### Required arguments:
 #### -d, --depthFile
