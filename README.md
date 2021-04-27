@@ -15,7 +15,7 @@ Non-base library dependencies:
 
 ### Required arguments:
 #### -d, --depthFile
-Path to a file containing the output of `samtools depth -a`. Can be gzip compressed. The output should look like:
+Path to a file containing the output of `samtools depth -a`. Can be gzip compressed. The input should look like:
 ```bash
 seq1	1	5
 seq1	2	6
