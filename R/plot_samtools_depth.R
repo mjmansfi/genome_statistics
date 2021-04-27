@@ -63,7 +63,11 @@ option_list = list(
 	make_option(c('--plotDepthPerSeq'), action='store_true', default=FALSE, type='logical',
 		help='Flag specifying whether or not to show plot summarizing mean depth for each sequence. Default: False.'),
 	make_option(c('--plotDepthWindowDistPerSeq'), action='store_true', default=FALSE, type='logical',
-		help='Flag specifying whether or not to show box plots with mean depth window distributions for each sequence. Default: False. By default coverage windows are not calculated; if they are, showPerSeqWindowPlot is FALSE unless specified.'),
+		help='Flag specifying whether to show box plots with mean depth window distributions for each sequence. Default: False. By default coverage windows are not calculated; if they are, showPerSeqWindowPlot is FALSE unless specified.'),
+	make_option(c('--writeDepthPerSeqTable'), action='store_true', default=FALSE, type='logical',
+		help='Flag specifying whether to write a per-sequence summary table in TSV format. Default: False'),
+	make_option(c('--writeDepthWindowTable'), action='store_true', default=FALSE, type='logical',
+		help='Flag specifying whether to write a per-sequence summary table in TSV format. Default: False'),
 	make_option(c('--viridisPalette'), action='store', default='viridis', type='character',
 		help='A string specifying a viridis colour palette. This is only used in DepthPerSeq and DepthWindowDistPerSeq plots. Default: viridis'),
 	make_option(c('--useSplines'), action='store_true', default=FALSE, type='logical',
@@ -185,24 +189,23 @@ check_file_overwrite = function(fileName, forceOverwrite=F) {
 			if (force_overwrite == 1) {
 				return(TRUE)
 			} else {
-				return(FALSE)
+				cat('Well, in that case, exiting. Use --force to force overwrite of existing output files, or specify a different output base name with --outFile.\n', file=stderr())
+				quit(status=1)
 			}
 		}
 	}
 }
 
-# Check all output files to see if they exist.
-depth_plot_file_name = paste(output_base, '_depthPlot', output_file_extension, sep='')
-check_file_overwrite(depth_plot_file_name, forceOverwrite=opt$force)
+# Create output file names up front.
+# Later, make sure these files don't exist. If they do, prompt user for an overwrite.
+depth_plot_output_name = paste(output_base, '_depthPlot', output_file_extension, sep='')
 
 if(opt$plotDepthPerSeq){
-	depth_per_seq_plot_file_name = paste(output_base, '_depthPerSeqBarplot', output_file_extension, sep='')
-	check_file_overwrite(depth_plot_file_name, forceOverwrite=opt$force)
+	depth_per_seq_plot_output_name = paste(output_base, '_depthPerSeqBarplot', output_file_extension, sep='')
 }
 
-if(opt$plotDepthPerSeq){
-	depth_per_seq_plot_file_name = paste(output_base, '_depthPerSeqBarplot', output_file_extension, sep='')
-	check_file_overwrite(depth_plot_file_name, forceOverwrite=opt$force)
+if(opt$plotDepthWindowDistPerSeq){
+	depth_window_dist_plot_output_name = paste(output_base, '_depthWindowDistPerSeq', output_file_extension, sep='')
 }
 
 ############################################################
@@ -247,10 +250,42 @@ if(opt$useSplines){
 	use_splines = FALSE
 }
 
+# Whether or not to write output tables.
+if(opt$writeDepthPerSeqTable){
+	write_depth_per_seq_table = TRUE
+} else {
+	write_depth_per_seq_table = FALSE
+}
+if(opt$writeDepthWindowTable){
+	write_depth_window_table = TRUE
+} else {
+	write_depth_window_table = FALSE
+}
+
 ############################################################
 # Summarize inputs and outputs.
 ############################################################
-print_summary_stats <- function(depthDF) {
+print_input_summary <- function() {
+	summary = paste(
+		'INPUT OPTIONS:', '\n',
+		'  Input depth file:                    ', opt$depthFile, '\n',
+		'  Filter statement:                    ', turn_filter_statement_into_vector(opt$filter), '\n',
+		'  Window size:                         ', window_size, '\n',
+		'  Step size:                           ', step_size, '\n',
+		'  Number of threads:                   ', num_threads, '\n',
+		'OUTPUT OPTIONS:', '\n',
+		'  Output base name:                    ', output_base, '\n',
+		'  Output plot file type:               ', output_file_extension, '\n',
+		'  Plot per-seq depth barplot?          ', opt$plotDepthPerSeq, '\n',
+		'  Plot per-seq window distribution?    ', opt$plotDepthWindowDistPerSeq, '\n',
+		'  Plot coverage using splines?         ', opt$useSplines, '\n',
+		'  Write output DepthPerSeq table?      ', opt$writeDepthPerSeqTable, '\n',
+		'  Write output DepthWindowTable table? ', opt$writeDepthWindowTable, '\n',
+		sep='')
+	cat(summary)
+}
+
+print_depthDF_summary <- function(depthDF) {
 	number_of_rows = nrow(depthDF)
 	number_of_rows_above_0 = nrow(subset(depthDF, depthDF$Depth > 0))
 	number_of_sequences = length(unique(depthDF$Sequence))
@@ -261,23 +296,12 @@ print_summary_stats <- function(depthDF) {
 	depth_sd = format(sd(depthDF$Depth), digits=2)
 
 	stat_summary = paste(
-		'INPUT OPTIONS:', '\n',
-		'  Input depth file:                  ', opt$depthFile, '\n',
-		'  Filter statement:                  ', turn_filter_statement_into_vector(opt$filter), '\n',
-		'  Window size:                       ', window_size, '\n',
-		'  Step size:                         ', step_size, '\n',
-		'  Number of threads:                 ', num_threads, '\n',
-		'OUTPUT OPTIONS:', '\n',
-		'  Output base name:                  ', output_base, '\n',
-		'  Output file type:                  ', output_file_extension, '\n',
-		'  Plot per-seq depth barplot?        ', opt$plotDepthPerSeq, '\n',
-		'  Plot per-seq window distribution?  ', opt$plotDepthWindowDistPerSeq, '\n',
-		'  Plot coverage using splines?       ', opt$useSplines, '\n',
 		'SUMMARY OF DEPTH FILE:', '\n',
-		'  Total number of positions:         ', format(number_of_rows, big.mark=','), '\n',
-		'  Num. positions with coverage >0:   ', format(number_of_rows_above_0, big.mark=','), '\n',
-		'  Overall cov. mean, median, and SD: ', paste(depth_mean, depth_median, depth_sd, sep=', '), '\n',
-		'  Top 5 sequences by length:         ', paste(rows_per_sequence[1:5], collapse=', '), '\n',
+		'  Total number of positions:           ', format(number_of_rows, big.mark=','), '\n',
+		'  Num. positions with coverage >0:     ', format(number_of_rows_above_0, big.mark=','), '\n',
+		'  Num. of sequences in depth file:     ', format(number_of_sequences, big.mark=','), '\n',
+		'  Overall cov. mean, median, and SD:   ', paste(depth_mean, depth_median, depth_sd, sep=', '), '\n',
+		'  Top 5 sequences by length:           ', paste(rows_per_sequence[1:5], collapse=', '), '\n',
 		sep='')
 	cat(stat_summary)
 }
@@ -298,25 +322,6 @@ remove_sequences_with_0_depth = function(depthDF){
 	return(depthDF_by_seq)
 }
 
-############################################################
-# A helper function to open output files in the right
-# format.
-############################################################
-open_plot_output_file = function(fileExtension=NA, fileName=NA) {
-	if(!is.na(fileName)){
-		if(fileExtension == 'pdf'){
-			file_function = pdf(fileName)
-		} else if (fileExtension == 'png') {
-			file_function = png(fileName)
-		} else if (fileExtension == 'jpeg') {
-			file_function = jpeg(fileName)
-		} else if (extension == 'ps'){
-			file_function = postscript(fileName)
-		} else if (fileExtension == 'bmp'){
-			file_function = bmp(fileName)
-		}
-	}
-}
 
 ############################################################
 # This function calculates depth statistics for each
@@ -368,7 +373,7 @@ calculate_depth_per_seq <- function(depthDF, numThreads=1){
 # columns. This makes it easy to pass colour annotations to
 # to plotting functions.
 ############################################################
-numeric_vector_to_labels_and_colours = function(numeric_vector, breaks=8, viridis_palette=viridis, prefix='', suffix='', digits=2){
+numeric_vector_to_labels_and_colours = function(numeric_vector, breaks=5, viridis_palette=viridis, prefix='', suffix='', digits=2){
 	colour_palette = viridis_palette(breaks)
 	cut_vector = cut(numeric_vector, breaks=breaks)
 	cut_vector_levels = levels(cut_vector)
@@ -390,7 +395,7 @@ numeric_vector_to_labels_and_colours = function(numeric_vector, breaks=8, viridi
 ############################################################
 # This function plots coverage per sequence.
 ############################################################
-plot_depth_per_seq <- function(chunkedDF, seqs_per_plot=25, plots_per_page=1, viridis_palette=viridis, breaks=8){
+plot_depth_per_seq <- function(chunkedDF, seqs_per_plot=25, plots_per_page=1, viridis_palette=viridis, breaks=5){
 	# Call helper function to get colours and labels according to a numeric vector (length).
 	labels_and_colours = numeric_vector_to_labels_and_colours(chunkedDF$Length/1000, breaks=breaks, viridis_palette=viridis_palette, prefix='', suffix='kbp', digits=2)
 	chunkedDF$colour = labels_and_colours$colour
@@ -494,7 +499,7 @@ calculate_depth_windows <- function(depthDF, windowSize=5000, stepSize=5000, num
 # This function plots depth window distributions
 # across all sequences in the depthfile.
 ############################################################
-plot_depth_window_distribution_per_seq <- function(chunkedDF, seqs_per_plot=20, plots_per_page=1, viridis_palette=viridis, breaks=8){
+plot_depth_window_distribution_per_seq <- function(chunkedDF, seqs_per_plot=20, plots_per_page=1, viridis_palette=viridis, breaks=5){
 	# Call helper function to get colours and labels according to a numeric vector (length).
 	labels_and_colours = numeric_vector_to_labels_and_colours(chunkedDF$Length/1000, breaks=breaks, viridis_palette=viridis_palette, prefix='', suffix='kbp', digits=2)
 	chunkedDF$colour = labels_and_colours$colour
@@ -586,13 +591,37 @@ plot_depth_windows_over_seqs <- function(chunkedDF, plots_per_page=1, windows=F,
 }
 
 
+############################################################
+# A helper function to open output files in the right
+# format.
+############################################################
+open_output_plot_file = function(fileExtension=NA, fileName=NA) {
+	if(!is.na(fileName)){
+		if(fileExtension == 'pdf'){
+			file_function = pdf(fileName)
+		} else if (fileExtension == 'png') {
+			file_function = png(fileName)
+		} else if (fileExtension == 'jpeg') {
+			file_function = jpeg(fileName)
+		} else if (extension == 'ps'){
+			file_function = postscript(fileName)
+		} else if (fileExtension == 'bmp'){
+			file_function = bmp(fileName)
+		}
+	}
+}
+
 ####################################################################
 #
 # WORKFLOW
 #
 ####################################################################
+if(opt$verbose){
+	print_input_summary()
+}
+
 depth_df <- fread(opt$depthFile, nThread=num_threads)
-# Now that the depth DF is loaded, give the columns some names.
+# With the depth DF loaded, give the columns names.
 colnames(depth_df) <- c('Sequence', 'Position', 'Depth')
 
 if(!ensure_depth_file_used_minus_a_flag(depthDF=depth_df)){
@@ -612,5 +641,31 @@ if(nrow(depth_df) == 0){
 }
 
 if(opt$verbose){
-	print_summary_stats(depthDF=depth_df)
+	print_depthDF_summary(depthDF=depth_df)
 }
+
+# First, do per-sequence depth stuff, if necessary.
+if(opt$plotDepthPerSeq){
+	if(check_file_overwrite(depth_per_seq_plot_output_name, forceOverwrite=opt$force)){
+		depth_df_per_seq = calculate_depth_per_seq(depth_df, numThreads=num_threads)
+		open_output_plot_file(fileExtension=output_file_extension, fileName=depth_per_seq_plot_output_name)
+		plot_depth_per_seq(depth_df_per_seq, seqs_per_plot=25, plots_per_page=plots_per_page, viridis_palette=viridis_palette)
+		dev.off()
+	}
+}
+
+# Second, make per-sequence coverage plots.
+if(opt$plotDepthPerSeq){
+	if(check_file_overwrite(depth_per_seq_plot_output_name, forceOverwrite=opt$force)){
+		depth_df_per_seq = calculate_depth_per_seq(depth_df, numThreads=num_threads)
+		open_output_plot_file(fileExtension=output_file_extension, fileName=depth_per_seq_plot_output_name)
+	}
+}
+
+# The depth distribution plots always need to be made. Start with that.
+if(check_file_overwrite(depth_plot_output_name, forceOverwrite=opt$force)){
+	print(':)')
+}
+
+
+check_file_overwrite(depth_window_dist_plot_output_name, forceOverwrite=opt$force)
