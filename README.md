@@ -43,7 +43,8 @@ Comma-separated list of query sequences to analyze. Useful if you are interested
 
 #### --scaleLenPerSeq, --scaleDepthPerSeq
 Scaling options that determine the limits of each plot on the X (length) and Y (Depth) axes. The following image (which, for now, is manually coloured) shows what these options do more clearly:
-![Image description of scaling options](https://github.com/mjmansfi/assets/plot_samtools_depth_scaling.png)
+
+![Image description of scaling options](https://github.com/mjmansfi/genomics_scripts/assets/plot_samtools_depth_scaling.png)
 
 #### -t, --threads
 Number of threads to use for parallel processing.
