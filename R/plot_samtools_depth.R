@@ -609,7 +609,7 @@ depth_df_per_seq = calculate_depth_per_seq(depth_df, numThreads=num_threads)
 
 if(opt$plotDepthPerSeq){
 	# Try opening output file before proceeding.
-	# This function prints an error and exits if the file exists, but --force is off.
+	# check_file_exsists prints an error and exits when the output file exists, but --force is off.
 	if(check_file_exists(fileName=depth_per_seq_plot_output_name, forceOverwrite=opt$force)){
 		open_output_plot_file(fileName=depth_per_seq_plot_output_name, fileExtension='pdf')
 		plot_depth_per_seq(depth_df_per_seq, seqs_per_plot=25, plots_per_page=plots_per_page, viridis_palette=viridis_palette)
@@ -617,6 +617,7 @@ if(opt$plotDepthPerSeq){
 	}
 }
 
+# Write output table if necessary
 if(opt$writeDepthPerSeqTable){
 	write.table(x=depth_df_per_seq, file=paste(output_base, '_depthPerSeq.tsv', sep=''), quote=F, row.names=F, sep='\t')
 }
