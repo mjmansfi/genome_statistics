@@ -13,12 +13,11 @@ Non-base library dependencies:
 - `R.utils` - to read compressed input files
 - `viridis` - to allow more colourful plots
 
+### Required options:
 
-Required options:
+#### -d, --depthFile
 
-### -d, --depthFile
-
-Path to the file containing the output of samtools depth -a. Can be gzip compressed. The output should look like:
+Path to a file containing the output of `samtools depth -a`. Can be gzip compressed. The output should look like:
 ```bash
 seq1	1	5
 seq1	2	6
@@ -27,14 +26,14 @@ seq1	4	0
 ...
 seqN	X	Y
 ```
-Note that sequence names may be truncated in the process of creating the depth file. To avoid this, ensure that the sequence names in the FASTA file are simple.
+Note that sequence names may be truncated in the process of creating the depth file. To avoid this, ensure that the sequence names in the FASTA file are simple (e.g., by using `python/fasta_rename_with_table.py`!)
 
-### -f, --filter
+#### -o, --outFile
 
-Comma-separated list of query sequences to analze. Useful if you are interested in one or a few sequences represented in the depth file. Usage: `--filter seq1,seq5`
+Base name for output files. If not specified, the default is `[depth file input name]`. The script automatically appends the names 
 
-### -o, --outFile
+### Optional arguments:
 
-Base name for output files. If not specified, the default is `[depth file input name]`. If `--outFile` is specified, the script appends file names and extensions as necessary. 
+#### -f, --filter
 
-
+Comma-separated list of query sequences to analyze. Useful if you are interested in one or a few sequences represented in the depth file. Usage: `--filter seq1,seq5`
