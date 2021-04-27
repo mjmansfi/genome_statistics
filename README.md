@@ -23,7 +23,7 @@ seq1	3	0
 ...
 seqN	X	Y
 ```
-Note that the original sequence names from a FASTA file may be truncated while creating the depth file. To avoid this, ensure that the sequence names in the FASTA file are simple before doing read alignment (e.g., by using `python/fasta_rename_with_table.py`).
+where the columns correspond to sequence name, position, and depth, respectively. Note that the original sequence names from a FASTA file may be truncated while creating the depth file. To avoid this, ensure that the sequence names in the FASTA file are simple before doing read alignment (e.g., by using `python/fasta_rename_with_table.py`).
 
 ### Optional arguments:
 #### -o, --outFile
