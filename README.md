@@ -21,7 +21,6 @@ Path to a file containing the output of `samtools depth -a`. Can be gzip compres
 seq1	1	5
 seq1	2	6
 seq1	3	0
-seq1	4	0
 ...
 seqN	X	Y
 ```
@@ -68,6 +67,26 @@ Number of threads to use for parallel processing.
 
 #### --writeDepthPerSeqTable, --writeDepthWindowTable
 Optionally write tables of per-sequence coverage or per-window coverage to external `tsv` files.
+
+Example `--writeDepthPerSeqTable` output:
+```bash
+Sequence	Length	Depth_mean	Depth_median	Depth_sd
+seq1	12500	200	180	20
+seq2	4200	210	100	80
+seq3	2000	80	88	10
+...
+seqN	W	X	Y	Z
+```
+
+Example `--writeDepthWindowTable` output:
+```bash
+Sequence	Start	End	Depth_mean	Depth_median	Depth_sd
+seq1	1	1000	210	200	19
+seq1	1001	2001	180	192	12
+seq1	2001	3001	88	10
+seqN	V	W	X	Y	Z
+
+```
 
 #### --verbose
 Print nice summary messages.
