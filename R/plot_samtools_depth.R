@@ -385,7 +385,7 @@ plot_depth_per_seq <- function(chunkedDF, seqs_per_plot=25, plots_per_page=1, vi
 		joined_df = do.call(rbind, list_subsection)
 
 		barplot(joined_df$Depth_mean ~ joined_df$Sequence, las=2, xlab='Sequence', ylab='Depth', ylim=c(0, max_depth), col=joined_df$colour)
-		legend('topright', cex=0.85, bg='white', pch=15, col=unique(chunkedDF$colour), legend=unique(chunkedDF$label), bty='n')
+		legend('topright', cex=0.85, bg='white', pch=15, col=unique(chunkedDF$colour), legend=unique(chunkedDF$label))
 
 	})
 	par(mfrow=c(1,1))
@@ -605,18 +605,20 @@ if(opt$verbose){
 ############################################################
 # Per-sequence depth window plot and table
 ############################################################
+depth_df_per_seq = calculate_depth_per_seq(depth_df, numThreads=num_threads)
+
 if(opt$plotDepthPerSeq){
 	# Try opening output file before proceeding.
 	# This function prints an error and exits if the file exists, but --force is off.
 	if(check_file_exists(fileName=depth_per_seq_plot_output_name, forceOverwrite=opt$force)){
-		depth_df_per_seq = calculate_depth_per_seq(depth_df, numThreads=num_threads)
-		if(opt$writeDepthPerSeqTable){
-			write.table(x=depth_df_per_seq, file=paste(output_base, '_depthPerSeq.tsv', sep=''), quote=F, row.names=F, sep='\t')
-		}
 		open_output_plot_file(fileName=depth_per_seq_plot_output_name, fileExtension='pdf')
 		plot_depth_per_seq(depth_df_per_seq, seqs_per_plot=25, plots_per_page=plots_per_page, viridis_palette=viridis_palette)
 		invisible(dev.off())
 	}
+}
+
+if(opt$writeDepthPerSeqTable){
+	write.table(x=depth_df_per_seq, file=paste(output_base, '_depthPerSeq.tsv', sep=''), quote=F, row.names=F, sep='\t')
 }
 
 ############################################################

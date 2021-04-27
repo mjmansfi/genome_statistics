@@ -44,10 +44,30 @@ Comma-separated list of query sequences to analyze. Useful if you are interested
 #### --scaleLenPerSeq, --scaleDepthPerSeq
 Scaling options that determine the limits of each plot on the X (length) and Y (Depth) axes. The following image (which, for now, is manually coloured) shows what these options do more clearly:
 
-![Image description of scaling options](https://raw.githubusercontent.com/mjmansfi/genomics_scripts/main/assets/plot_samtools_depth_scaling.png)
+![Scaling options](https://raw.githubusercontent.com/mjmansfi/genomics_scripts/main/assets/plot_samtools_depth_scaling.png)
+
+#### --seqsPerPage
+Option to include multiple sequences on a single PDF page. By default, one sequence is shown per page in the depth plot. Increasing this is mostly useful if long, thin plots is preferable to the square ones produced by default. However, this number cannot be more than 5, because base R will start to complain about margin sizes. I recommend post-processing in [Inkscape](https://inkscape.org/) or similar.
+
+Do note that this affects the way barplots are distributed if `--plotDepthPerSeq` is specified.
+
+#### --plotDepthPerSeq
+Optional barplot output displaying average coverage per sequence in the depth file, coloured by sequence length. Example:
+![Scaling options](https://raw.githubusercontent.com/mjmansfi/genomics_scripts/main/assets/plot_samtools_depth_plotDepthPerSeq.png)
+
+Colours can be changed with the `--viridisPalette` argument.
+
+#### --useSplines
+Fit smoothing splines to coverage distributions instead of raw counts (or window counts). Example:
+![Scaling options](https://raw.githubusercontent.com/mjmansfi/genomics_scripts/main/assets/plot_samtools_depth_useSplines.png)
+
+The splines sometimes make it easier to spot trends in the data, and also drastically reduces the number of vertices in the polygon, making it easier to manipulate in external image editing programs. But, sometimes it looks a bit silly, especially for low-coverage sequences.
 
 #### -t, --threads
 Number of threads to use for parallel processing.
+
+#### --writeDepthPerSeqTable, --writeDepthWindowTable
+Optionally write tables of per-sequence coverage or per-window coverage to external `tsv` files.
 
 #### --verbose
 Print nice summary messages.
