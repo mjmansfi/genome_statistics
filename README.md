@@ -50,7 +50,8 @@ Do note that this affects the way barplots are distributed if `--plotDepthPerSeq
 
 #### --plotDepthPerSeq
 Optional barplot output displaying average coverage per sequence in the depth file, coloured by sequence length. Example:
-![Scaling options](https://raw.githubusercontent.com/mjmansfi/genomics_scripts/main/assets/plot_samtools_depth_plotDepthPerSeq.png)
+
+![Depth per seq barplot](https://raw.githubusercontent.com/mjmansfi/genomics_scripts/main/assets/plot_samtools_depth_plotDepthPerSeq.png)
 
 Colours can be changed with the `--viridisPalette` argument.
 
