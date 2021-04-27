@@ -418,7 +418,6 @@ calculate_depth_windows <- function(depthDF, windowSize=5000, stepSize=5000, num
 				joined_chunks$Sequence = as.character(unlist(seq$Sequence))
 				joined_chunks$Start = as.numeric(unlist(seq$Position))
 				joined_chunks$End = as.numeric(unlist(seq$Position + 1))
-				joined_chunks$Midpoint = as.numeric(unlist(seq$Position + 0.5))
 				joined_chunks$Depth_mean = as.numeric(unlist(seq$Depth))
 				joined_chunks$Depth_sd = NA
 				joined_chunks$Depth_median = NA
@@ -456,7 +455,7 @@ calculate_depth_windows <- function(depthDF, windowSize=5000, stepSize=5000, num
 				depth_median = median(df_with_0s$Depth)
 				depth_sd = sd(df_with_0s$Depth)
 
-				chunk_list = list(Sequence=seq_name, Start=chunk_start, End=chunk_end, Midpoint=chunk_mid, Depth_mean=depth_mean, Depth_median=depth_median, Depth_sd=depth_sd)
+				chunk_list = list(Sequence=seq_name, Start=chunk_start, End=chunk_end, Depth_mean=depth_mean, Depth_median=depth_median, Depth_sd=depth_sd)
 				return(chunk_list)
 			})
 
@@ -465,7 +464,6 @@ calculate_depth_windows <- function(depthDF, windowSize=5000, stepSize=5000, num
 			joined_chunks$Sequence = as.character(unlist(joined_chunks$Sequence))
 			joined_chunks$Start = as.numeric(unlist(joined_chunks$Start))
 			joined_chunks$End = as.numeric(unlist(joined_chunks$End))
-			joined_chunks$Midpoint = as.numeric(unlist(joined_chunks$Midpoint))
 			joined_chunks$Depth_mean = as.numeric(unlist(joined_chunks$Depth_mean))
 			joined_chunks$Depth_sd = as.numeric(unlist(joined_chunks$Depth_sd))
 			joined_chunks$Depth_median = as.numeric(unlist(joined_chunks$Depth_median))
