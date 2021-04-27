@@ -84,6 +84,7 @@ Sequence	Start	End	Depth_mean	Depth_median	Depth_sd
 seq1	1	1000	210	200	19
 seq1	1001	2001	180	192	12
 seq1	2001	3001	88	10
+...
 seqN	V	W	X	Y	Z
 
 ```
