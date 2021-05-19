@@ -5,7 +5,15 @@ LABEL authors="michaeljamesmansfield@gmail.com" \
 
 # Update apt repositories
 RUN apt-get update \
+	&& apt-get install -y git \
 	&& apt-get clean \ 
 	&& rm -rf /var/lib/apt/lists/*
 
 RUN R -e "install.packages(c('optparse', 'data.table', 'R.utils', 'viridis'), dependencies=TRUE, repos='https://cloud.r-project.org')"
+
+WORKDIR /usr/local/src/plot_samtools_depth
+
+RUN git clone https://github.com/mjmansfi/genomics_scripts
+
+ENV PATH="genomics_scripts/R:${PATH}"
+
