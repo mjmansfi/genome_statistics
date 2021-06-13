@@ -30,4 +30,4 @@ if not out_fasta:
 else:
 	with open(out_fasta, 'w') as output_handler:
 		for fasta_header in fasta_d:
-			o.write('>%s\n%s\n' % (fasta_header, fasta_d[fasta_header].replace('-','')))
+			output_handler.write('>%s\n%s\n' % (fasta_header, fasta_d[fasta_header].replace('-','')))
