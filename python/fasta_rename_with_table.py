@@ -13,6 +13,7 @@ def check_positive_integer(value):
 
 parser = argparse.ArgumentParser(description='Rename the headers of a fasta file to make them play nice with different programs. Writes the new headers to an easily parsed tsv file for when you need this information back.', formatter_class=RawTextHelpFormatter)
 parser.add_argument('-f','--fasta', help='FASTA file to be renamed.', required=True)
+parser.add_argument('-p','--prefix', help='Which prefix to prepend to renamed FASTA sequences.\nDefault: s (each sequence becomes s1, s2, ... sN)', default='s', required=False)
 parser.add_argument('-o','--outfasta', help='Renamed FASTA output file.\nDefault: [input fasta].renamed.fa', required=False)
 parser.add_argument('-tsv','--outtsv', help='Renamed TSV output file.\nDefault: [input fasta].renamed.tsv', required=False)
 parser.add_argument('-seq', '--sequence', help='Boolean. Include sequence information in output .tsv?', required=False, action='store_true')
@@ -23,12 +24,17 @@ if args.outfasta:
 	out_fasta = args.outfasta
 else:
 	out_fasta = os.path.basename(args.fasta) + '.renamed.fa'
+	
+prefix = args.prefix
+
 if args.outtsv:
 	out_tsv = args.outtsv
 else:
 	out_tsv = os.path.basename(args.fasta) + '.renamed.tsv'
+	
 if args.sequence:
 	include_sequence = True
+
 check_seqs_for_standard = False
 if args.standard:
 	check_seqs_for_standard = True
@@ -100,11 +106,11 @@ with open(out_fasta, 'w') as fasta_handler:
 			seq_len = len(fasta_d[seq])
 			orig_header = seq
 			seq_string = fasta_d[seq]
-			fasta_handler.write('>s%i\n%s\n' % (seq_count, seq_string))
+			fasta_handler.write('>%s_%i\n%s\n' % (prefix, seq_count, seq_string))
 			if args.sequence:
-				tsv_out = ('s%i\t%s\t%i\t%s\n' % (seq_count, orig_header, seq_len, seq_string))
+				tsv_out = ('%s_%i\t%s\t%i\t%s\n' % (prefix, seq_count, orig_header, seq_len, seq_string))
 			else:
-				tsv_out = ('s%i\t%s\t%i\n' % (seq_count, orig_header, seq_len))
+				tsv_out = ('%s_%i\t%s\t%i\n' % (prefix, seq_count, orig_header, seq_len))
 			tsv_handler.write(tsv_out)
 print("Done!")
 print("    FASTA written to: %s\n    TSV written to: %s" % (out_fasta, out_tsv) )
