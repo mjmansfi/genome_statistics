@@ -24,7 +24,7 @@ if args.outfasta:
 	out_fasta = args.outfasta
 else:
 	out_fasta = os.path.basename(args.fasta) + '.renamed.fa'
-	
+
 prefix = args.prefix
 
 if args.outtsv:
@@ -106,11 +106,11 @@ with open(out_fasta, 'w') as fasta_handler:
 			seq_len = len(fasta_d[seq])
 			orig_header = seq
 			seq_string = fasta_d[seq]
-			fasta_handler.write('>%s_%i\n%s\n' % (prefix, seq_count, seq_string))
+			fasta_handler.write('>%s%i\n%s\n' % (prefix, seq_count, seq_string))
 			if args.sequence:
-				tsv_out = ('%s_%i\t%s\t%i\t%s\n' % (prefix, seq_count, orig_header, seq_len, seq_string))
+				tsv_out = ('%s%i\t%s\t%i\t%s\n' % (prefix, seq_count, orig_header, seq_len, seq_string))
 			else:
-				tsv_out = ('%s_%i\t%s\t%i\n' % (prefix, seq_count, orig_header, seq_len))
+				tsv_out = ('%s%i\t%s\t%i\n' % (prefix, seq_count, orig_header, seq_len))
 			tsv_handler.write(tsv_out)
 print("Done!")
 print("    FASTA written to: %s\n    TSV written to: %s" % (out_fasta, out_tsv) )
