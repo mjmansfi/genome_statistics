@@ -13,24 +13,26 @@ def check_positive_integer(value):
 
 parser = argparse.ArgumentParser(description='Rename the headers of a fasta file to make them play nice with different programs. Writes the new headers to an easily parsed tsv file for when you need this information back.', formatter_class=RawTextHelpFormatter)
 parser.add_argument('-f','--fasta', help='FASTA file to be renamed.', required=True)
-parser.add_argument('-p','--prefix', help='Which prefix to prepend to renamed FASTA sequences.\nDefault: s (each sequence becomes s1, s2, ... sN)', default='s', required=False)
-parser.add_argument('-o','--outfasta', help='Renamed FASTA output file.\nDefault: [input fasta].renamed.fa', required=False)
+parser.add_argument('-p','--prefix', help='Which prefix to prepend to renamed FASTA sequences.\nDefault: None (each sequence becomes 1, 2, ... N)', default="", required=False)
+parser.add_argument('-ap','--add-prefix', help='If True, then prepend option provided by --prefix to all names.\nDefault: False', default=False, required=False, action='store_true')
+parser.add_argument('-k', '--keep-old-names', help='Keep old name of the sequence. Can still prepend a prefix if --prefix is provided and --add-prefix is used. Useful to filter only for nonstandard characters without renaming.\nDefault: False, will do the renaming.', default=False, required=False, action='store_true')
+parser.add_argument('-o','--outfasta', help='Renamed FASTA output file.\nDefault: [input fasta].renamed.fasta', required=False)
 parser.add_argument('-tsv','--outtsv', help='Renamed TSV output file.\nDefault: [input fasta].renamed.tsv', required=False)
 parser.add_argument('-seq', '--sequence', help='Boolean. Include sequence information in output .tsv?', required=False, action='store_true')
-parser.add_argument('-std', '--standard', help='Remove sequences containing non-standard characters.\nWrites non-standard sequences to .warnings.txt.\nOptions:\n    [aa] - amino acids including X\n    [aax] - amino acids excluding X\n    [nt] - nucleotides including N\n    [ntn] - nucleotides excluding N', required=False, choices=['aa','aax','nt','ntn'])
+parser.add_argument('-std', '--standard', help='Remove sequences containing non-standard characters.\nWrites non-standard sequences to .warnings.txt.\nOptions:\n    [aa] - 20 canonical amino acids \n    [aax] - canonical amino acids including X\n    [aastar] - canonical amino acids including "*"\n    [aaxstar] - amino acids including "*" and X\n    [nt] - 4 canonical nucleotides\n    [ntn] - canonical nucleotides including N', required=False, choices=['aa','aax','aastar','aaxstar','nt','ntn',])
 args = parser.parse_args()
 
 if args.outfasta:
 	out_fasta = args.outfasta
 else:
-	out_fasta = os.path.basename(args.fasta) + '.renamed.fa'
+	out_fasta = os.path.basename(args.fasta) + '.renamed.fasta'
 
-prefix = args.prefix
+
 
 if args.outtsv:
 	out_tsv = args.outtsv
 else:
-	out_tsv = os.path.basename(args.fasta) + '.renamed.tsv'
+	out_tsv = os.path.basename(args.fasta) + '.renamed.fasta.tsv'
 	
 if args.sequence:
 	include_sequence = True
@@ -39,29 +41,53 @@ check_seqs_for_standard = False
 if args.standard:
 	check_seqs_for_standard = True
 	alphabet = args.standard
-	out_warnings = os.path.basename(args.fasta) + '.warnings.txt'
+	out_warnings = out_fasta + '.warnings.txt'
+
+dont_rename = False
+if args.keep_old_names:
+	dont_rename = True
+
+prefix = args.prefix
+add_prefix = False
+if args.add_prefix:
+	if prefix == "":
+		print('Error: prefix cannot be blank if --addprefix was used.', file=sys.stderr)
+		sys.exit(1)
+	else:
+		add_prefix = True
+	
 
 def check_standard(sequence, alphabet):
 	check = True
 	if alphabet == 'aa':
-		standard_aas = 'ACDEFGHIKLMNPQRSTVWXY'
-		for letter in sequence:
-			if letter.upper() not in standard_aas:
-				check = False
-	if alphabet == 'aax':
 		standard_aas = 'ACDEFGHIKLMNPQRSTVWY'
 		for letter in sequence:
 			if letter.upper() not in standard_aas:
 				check = False
-	if alphabet == 'nt':
-		standard_nts = 'ATCGN'
+	if alphabet == 'aax':
+		standard_aas = 'ACDEFGHIKLMNPQRSTVWYX'
 		for letter in sequence:
-			if letter.upper() not in standard_nt:
+			if letter.upper() not in standard_aas:
 				check = False
-	if alphabet == 'ntn':
+	if alphabet == 'aastar':
+		standard_aas = 'ACDEFGHIKLMNPQRSTVWY*'
+		for letter in sequence:
+			if letter.upper() not in standard_aas:
+				check = False
+	if alphabet == 'aaxstar':
+		standard_aas = 'ACDEFGHIKLMNPQRSTVWXY*'
+		for letter in sequence:
+			if letter.upper() not in standard_aas:
+				check = False
+	if alphabet == 'nt':
 		standard_nts = 'ATCG'
 		for letter in sequence:
-			if letter.upper() not in standard_nt:
+			if letter.upper() not in standard_nts:
+				check = False
+	if alphabet == 'ntn':
+		standard_nts = 'ATCGN'
+		for letter in sequence:
+			if letter.upper() not in standard_nts:
 				check = False
 	return check
 
@@ -95,9 +121,9 @@ if check_seqs_for_standard:
 with open(out_fasta, 'w') as fasta_handler:
 	with open(out_tsv, 'w') as tsv_handler:
 		if args.sequence:
-			tsv_header = 'renamed\toriginal\tseqlen\tsequence\n'
+			tsv_header = 'seq_num\toriginal\tnew_name\tseqlen\tsequence\n'
 		else:
-			tsv_header = 'renamed\toriginal\tseqlen\n'
+			tsv_header = 'seq_num\toriginal\tnew_name\tseqlen\n'
 		tsv_handler.write(tsv_header)
 		print('Writing outputs to %s and %s...' % (out_fasta, out_tsv))
 		seq_count = 0
@@ -106,11 +132,18 @@ with open(out_fasta, 'w') as fasta_handler:
 			seq_len = len(fasta_d[seq])
 			orig_header = seq
 			seq_string = fasta_d[seq]
-			fasta_handler.write('>%s%i\n%s\n' % (prefix, seq_count, seq_string))
-			if args.sequence:
-				tsv_out = ('%s%i\t%s\t%i\t%s\n' % (prefix, seq_count, orig_header, seq_len, seq_string))
+			if dont_rename:
+				if add_prefix:
+					output_name = '%s%s' % (prefix, orig_header)
+				else:
+					output_name = orig_header
 			else:
-				tsv_out = ('%s%i\t%s\t%i\n' % (prefix, seq_count, orig_header, seq_len))
+				output_name = '%s%s' % (prefix, seq_count)
+			fasta_handler.write('>%s\n%s\n' % (output_name, seq_string))
+			if args.sequence:
+				tsv_out = ('%s\t%s\t%s\t%i\t%s\n' % (seq_count, orig_header, output_name, seq_len, seq_string))
+			else:
+				tsv_out = ('%s\t%s\t%s\t%i\n' % (seq_count, orig_header, output_name, seq_len))
 			tsv_handler.write(tsv_out)
 print("Done!")
 print("    FASTA written to: %s\n    TSV written to: %s" % (out_fasta, out_tsv) )
